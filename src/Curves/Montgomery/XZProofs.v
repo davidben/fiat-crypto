@@ -4,6 +4,7 @@ Require Import Crypto.Util.Sum Crypto.Util.Prod Crypto.Util.LetIn.
 Require Import Crypto.Util.Decidable.
 Require Import Crypto.Util.Tuple.
 Require Import Crypto.Util.ZUtil.
+Require Import Crypto.Util.ZUtil.Peano.
 Require Import Crypto.Util.Tactics.SetoidSubst.
 Require Import Crypto.Util.Tactics.SpecializeBy.
 Require Import Crypto.Util.Tactics.DestructHead.
@@ -268,10 +269,11 @@ Module M.
     Lemma montladder_correct_0
           (HFinv : Finv 0 = 0)
           (n : Z)
-          (scalarbits : Z)
+          (scalarbits : Z) (point : F)
+          (Hz : point = 0)
           (Hn : (0 <= n < 2^scalarbits)%Z)
           (Hscalarbits : (0 <= scalarbits)%Z)
-      : montladder scalarbits (Z.testbit n) 0 = 0.
+      : montladder scalarbits (Z.testbit n) point = 0.
     Proof.
       cbv beta delta [M.montladder].
       (* [while.by_invariant] expects a goal like [?P (while _ _ _ _)], make it so: *)
@@ -379,6 +381,46 @@ Module M.
         cbv [Let_In]; break_match; cbn; rewrite Z.succ_pred; apply Znat.Z2Nat.inj_lt; lia. }
     Qed.
 
+    Lemma scalarmult_0
+          (n : Z) (P : M.point)
+          (H : 0 = to_x (to_xz P))
+      : 0 = to_x (to_xz (scalarmult n P)).
+    Proof.
+      induction n using Z.peano_rect.
+      { cbn. t. }
+      { rewrite Z.succ'_succ.
+        Check @scalarmult_succ_l.
+        About scalarmult_succ_l.
+        rewrite @scalarmult_succ_l with (mul := scalarmult) (G := Mpoint).
+        (* Error: Anomaly "Uncaught exception Term.DestKO." 
+           Please report at http://coq.inria.fr/bugs/. *)
+        
+    Lemma montladder_correct
+          (HFinv : Finv 0 = 0)
+          (n : Z) (P : M.point)
+          (scalarbits : Z) (point : F)
+          (Hn : (0 <= n < 2^scalarbits)%Z)
+          (Hscalarbits : (0 <= scalarbits)%Z)
+          (Hpoint : point = to_x (to_xz P))
+      : montladder scalarbits (Z.testbit n) point = to_x (to_xz (scalarmult n P)).
+    Proof.
+      destruct (dec (point = 0)) as [Hz|Hnz].
+      { rewrite (montladder_correct_0 HFinv _ _ _ Hz Hn Hscalarbits).
+        setoid_subst_rel Feq.
+        
+          
+(*    Lemma montladder_correct_0
+          (HFinv : Finv 0 = 0)
+          (n : Z)
+          (scalarbits : Z) (point : F)
+          (Hz : point = 0)
+          (Hn : (0 <= n < 2^scalarbits)%Z)
+          (Hscalarbits : (0 <= scalarbits)%Z) *)
+
+                 (* TODO  Finish this up. That (0, 0) is a point is a pain... *)
+      }
+      { apply (montladder_correct_nz HFinv n P scalarbits point Hnz Hn Hscalarbits Hpoint). }
+    
     (* TODO: Combine the above lemmas. We haven't yet proven that montladder
        preserves Feq, so this is tricky. *)
 
